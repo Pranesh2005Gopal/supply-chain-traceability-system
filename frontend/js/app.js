@@ -269,20 +269,20 @@ async function loadProducts() {
     }
 
     tbody.innerHTML = data.items.map(p => `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-mono font-medium text-slate-900">${p.product_id}</td>
-        <td class="p-3">
-          <div class="font-medium text-slate-800">${p.name}</div>
-          <div class="text-[11px] text-slate-400 truncate max-w-xs">${p.description || ''}</div>
+      <tr class="hover:bg-sky-50/30 transition-colors border-b border-slate-100 last:border-0">
+        <td class="px-4 py-3.5 font-mono text-xs font-semibold text-slate-800">${p.product_id}</td>
+        <td class="px-4 py-3.5">
+          <div class="font-semibold text-slate-900 text-xs">${p.name}</div>
+          <div class="text-[11px] text-slate-500 truncate max-w-sm mt-0.5">${p.description || ''}</div>
         </td>
-        <td class="p-3">
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.data_origin === 'SOURCE' ? 'bg-sky-100 text-sky-800' : 'bg-purple-100 text-purple-800'}">
+        <td class="px-4 py-3.5">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${p.data_origin === 'SOURCE' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
             ${p.data_origin}
           </span>
         </td>
-        <td class="p-3 text-right space-x-1 whitespace-nowrap">
-          <button onclick="editProduct('${p.product_id}', '${escapeAttr(p.name)}', '${escapeAttr(p.description || '')}')" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">Edit</button>
-          <button onclick="confirmDelete('product', '${p.product_id}', 'Product ${p.product_id} (${escapeAttr(p.name)})')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700">Delete</button>
+        <td class="px-4 py-3.5 text-right space-x-1.5 whitespace-nowrap">
+          <button onclick="editProduct('${p.product_id}', '${escapeAttr(p.name)}', '${escapeAttr(p.description || '')}')" class="btn-action-edit">Edit</button>
+          <button onclick="confirmDelete('product', '${p.product_id}', 'Product ${p.product_id} (${escapeAttr(p.name)})')" class="btn-action-delete">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -388,18 +388,18 @@ async function loadBatches() {
     }
 
     tbody.innerHTML = data.items.map(b => `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-mono font-medium text-slate-900">${b.batch_id}</td>
-        <td class="p-3 font-mono text-slate-700">${b.lot_number}</td>
-        <td class="p-3 font-mono text-slate-500">${b.product_id}</td>
-        <td class="p-3">
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${b.data_origin === 'SOURCE' ? 'bg-sky-100 text-sky-800' : 'bg-purple-100 text-purple-800'}">
+      <tr class="hover:bg-sky-50/30 transition-colors border-b border-slate-100 last:border-0">
+        <td class="px-4 py-3.5 font-mono text-xs font-semibold text-slate-900">${b.batch_id}</td>
+        <td class="px-4 py-3.5 font-mono text-xs text-slate-700 bg-slate-50/50 rounded">${b.lot_number}</td>
+        <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${b.product_id}</td>
+        <td class="px-4 py-3.5">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${b.data_origin === 'SOURCE' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
             ${b.data_origin}
           </span>
         </td>
-        <td class="p-3 text-right space-x-1 whitespace-nowrap">
-          <button onclick="setTraceTarget('${b.batch_id}'); switchTab('tab-trace')" class="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 font-medium">Trace</button>
-          <button onclick="confirmDelete('batch', '${b.batch_id}', 'Batch ${b.batch_id}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700">Delete</button>
+        <td class="px-4 py-3.5 text-right space-x-1.5 whitespace-nowrap">
+          <button onclick="setTraceTarget('${b.batch_id}'); switchTab('tab-trace')" class="btn-action-trace">Trace</button>
+          <button onclick="confirmDelete('batch', '${b.batch_id}', 'Batch ${b.batch_id}')" class="btn-action-delete">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -487,17 +487,20 @@ async function loadActors() {
     }
 
     tbody.innerHTML = data.items.map(a => `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-medium text-slate-900">${a.name}</td>
-        <td class="p-3 font-mono text-[11px] text-slate-500">${a.actor_id}</td>
-        <td class="p-3 text-slate-600">${a.address?.city || ''}, ${a.address?.state || ''}</td>
-        <td class="p-3">
-          <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+      <tr class="hover:bg-sky-50/30 transition-colors border-b border-slate-100 last:border-0">
+        <td class="px-4 py-3.5">
+          <div class="font-semibold text-slate-900 text-xs">${a.name}</div>
+          <div class="text-[11px] text-slate-400 font-mono mt-0.5">${a.gln || ''}</div>
+        </td>
+        <td class="px-4 py-3.5 font-mono text-xs text-slate-600 break-all max-w-xs">${a.actor_id}</td>
+        <td class="px-4 py-3.5 text-xs text-slate-600">${a.address?.city || ''}${a.address?.state ? ', ' + a.address.state : ''}</td>
+        <td class="px-4 py-3.5">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
             ${a.inferred_role || 'DISTRIBUTOR'}
           </span>
         </td>
-        <td class="p-3 text-right space-x-1 whitespace-nowrap">
-          <button onclick="confirmDelete('actor', '${encodeURIComponent(a.actor_id)}', 'Facility ${escapeAttr(a.name)}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700">Delete</button>
+        <td class="px-4 py-3.5 text-right space-x-1.5 whitespace-nowrap">
+          <button onclick="confirmDelete('actor', '${encodeURIComponent(a.actor_id)}', 'Facility ${escapeAttr(a.name)}')" class="btn-action-delete">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -605,16 +608,16 @@ async function loadEvents() {
     }
 
     tbody.innerHTML = data.items.map(e => `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-mono text-[11px] font-bold text-slate-900">${e.canonical_hash.substring(0, 16)}...</td>
-        <td class="p-3">${e.event_type}</td>
-        <td class="p-3">
-          <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-800 capitalize">${e.biz_step}</span>
+      <tr class="hover:bg-sky-50/30 transition-colors border-b border-slate-100 last:border-0">
+        <td class="px-4 py-3.5 font-mono text-xs font-semibold text-slate-800" title="${e.canonical_hash}">${e.canonical_hash.substring(0, 16)}...</td>
+        <td class="px-4 py-3.5 text-xs text-slate-700 font-medium">${e.event_type}</td>
+        <td class="px-4 py-3.5">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-800 border border-sky-200 capitalize">${e.biz_step}</span>
         </td>
-        <td class="p-3 text-[11px] text-slate-500">${e.event_time ? new Date(e.event_time).toLocaleString() : 'N/A'}</td>
-        <td class="p-3 font-mono text-[11px] text-slate-600">${e.batch_ids?.join(', ') || 'N/A'}</td>
-        <td class="p-3 text-right">
-          <button onclick="viewRawEvent('${e.canonical_hash}')" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">JSON</button>
+        <td class="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">${e.event_time ? new Date(e.event_time).toLocaleString() : 'N/A'}</td>
+        <td class="px-4 py-3.5 font-mono text-xs text-slate-600">${e.batch_ids?.join(', ') || 'N/A'}</td>
+        <td class="px-4 py-3.5 text-right whitespace-nowrap">
+          <button onclick="viewRawEvent('${e.canonical_hash}')" class="btn-action-edit font-mono">Payload JSON</button>
         </td>
       </tr>
     `).join('');
