@@ -74,6 +74,16 @@ def test_dashboard_and_static_serving():
     assert "text/html" in dash_resp.headers.get("content-type", "")
     assert "Supply Chain Traceability System" in dash_resp.text
 
+    # Test /dashboard/ with trailing slash
+    dash_slash_resp = client.get("/dashboard/")
+    assert dash_slash_resp.status_code == 200
+    assert "Supply Chain Traceability System" in dash_slash_resp.text
+
+    # Test static index.html
+    static_index_resp = client.get("/static/index.html")
+    assert static_index_resp.status_code == 200
+    assert "Supply Chain Traceability System" in static_index_resp.text
+
     # Test static CSS
     css_resp = client.get("/static/css/style.css")
     assert css_resp.status_code == 200

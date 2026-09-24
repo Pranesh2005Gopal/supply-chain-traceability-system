@@ -5,6 +5,7 @@ WORKDIR /app
 # Prevent Python from writing .pyc files to disk and buffering stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,8 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code
+# Copy backend, frontend, and etl code
 COPY backend /app/backend
+COPY frontend /app/frontend
+COPY etl /app/etl
 
 EXPOSE 8000
 

@@ -62,6 +62,10 @@ services:
       - MONGO_URI=mongodb://mongodb:27017
       - NEO4J_URI=bolt://neo4j:7687
       - REDIS_HOST=redis
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./etl:/app/etl
     depends_on:
       mongodb:
         condition: service_healthy

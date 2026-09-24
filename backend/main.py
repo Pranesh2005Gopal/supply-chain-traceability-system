@@ -129,13 +129,23 @@ app.include_router(export.router, prefix=api_v1_prefix)
 
 # Static Files & Frontend Dashboard UI
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+if not frontend_dir.exists():
+    for alt in [Path("frontend"), Path("/app/frontend")]:
+        if alt.exists():
+            frontend_dir = alt
+            break
+
 if frontend_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+    app.mount("/static", StaticFiles(directory=str(frontend_dir), html=True), name="static")
 
 
-@app.get("/dashboard", response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
+@app.api_route("/dashboard", methods=["GET", "HEAD"], response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
+@app.api_route("/dashboard/", methods=["GET", "HEAD"], response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
 async def dashboard():
     """Interactive Web Dashboard for Supply Chain Traceability System."""
     index_file = frontend_dir / "index.html"
-    return FileResponse(index_file)
+    if not index_file.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Dashboard index.html not found")
+    return FileResponse(index_file, media_type="text/html")
 
