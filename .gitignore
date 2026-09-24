@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment Variables & Secrets
+.env
+*.env
+!.env.example
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Database data directories (if run locally)
+mongo_data/
+neo4j_data/
+redis_data/
+data/
+
+# Node / Frontend build (for future phases)
+node_modules/
+dist/
+.cache/
+
+# IDEs & System files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
