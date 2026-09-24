@@ -22,6 +22,12 @@ class ProductCreate(BaseModel):
     uri: Optional[str] = Field(None, description="GS1 Digital Link URI")
 
 
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(None, description="Updated product name", examples=["Premium Organic Whole Milk"])
+    description: Optional[str] = Field(None, description="Updated description")
+    uri: Optional[str] = Field(None, description="Updated GS1 Digital Link URI")
+
+
 class ProductResponse(ProductBase):
     id: str = Field(..., alias="_id")
 

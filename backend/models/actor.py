@@ -42,6 +42,14 @@ class ActorCreate(BaseModel):
     role: Optional[str] = Field("HARVESTER_PRODUCER", description="Operational role")
 
 
+class ActorUpdate(BaseModel):
+    name: Optional[str] = Field(None, description="Updated facility name", examples=["Updated Facility Name"])
+    address: Optional[AddressModel] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    role: Optional[str] = Field(None, description="Updated operational role")
+
+
 class ActorResponse(ActorBase):
     id: str = Field(..., alias="_id")
 

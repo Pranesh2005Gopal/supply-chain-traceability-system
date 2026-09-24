@@ -10,9 +10,11 @@ from backend.database.mongo import get_mongo_db
 from backend.database.neo4j_driver import get_neo4j_driver
 from backend.models.batch import (
     BatchCreate,
+    BatchUpdate,
     BatchResponse,
     BatchListResponse
 )
+from backend.services.cache_service import invalidate_cache_pattern
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
 
@@ -127,3 +129,81 @@ async def create_batch(payload: BatchCreate):
         pass
 
     return BatchResponse(**doc)
+
+
+@router.put("/{batch_id:path}", response_model=BatchResponse)
+@router.patch("/{batch_id:path}", response_model=BatchResponse)
+async def update_batch(batch_id: str, payload: BatchUpdate):
+    """Update batch metadata in MongoDB and invalidate related cache."""
+    db = get_mongo_db()
+    bid = batch_id.strip()
+
+    doc = db.batches.find_one({"batch_id": bid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Batch with ID '{batch_id}' not found."
+        )
+
+    updates = {}
+    if payload.origin_location_id is not None:
+        updates["origin_location_id"] = payload.origin_location_id.strip()
+    if payload.uri is not None:
+        updates["uri"] = payload.uri.strip()
+
+    if updates:
+        db.batches.update_one({"batch_id": bid}, {"$set": updates})
+        doc.update(updates)
+        # Invalidate Redis caches for this batch
+        invalidate_cache_pattern(f"*{bid}*")
+
+    return BatchResponse(**doc)
+
+
+@router.delete("/{batch_id:path}", status_code=status.HTTP_200_OK)
+async def delete_batch(batch_id: str):
+    """
+    Delete a batch only if no historical trace events reference it.
+    Strictly prevents orphaning historical traceability records.
+    """
+    db = get_mongo_db()
+    bid = batch_id.strip()
+
+    doc = db.batches.find_one({"batch_id": bid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Batch with ID '{batch_id}' not found."
+        )
+
+    # Reference integrity check
+    event_count = db.trace_events.count_documents({"batch_ids": bid})
+    if event_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete batch '{bid}': it is referenced by {event_count} historical trace event(s). "
+                f"Historical traceability records cannot be orphaned."
+            )
+        )
+
+    # Safe delete from MongoDB
+    db.batches.delete_one({"batch_id": bid})
+
+    # Delete from Neo4j
+    try:
+        driver = get_neo4j_driver()
+        with driver.session() as session:
+            session.run("MATCH (b:Batch {batch_id: $bid}) DETACH DELETE b", bid=bid)
+    except Exception:
+        pass
+
+    # Invalidate cache
+    invalidate_cache_pattern(f"*{bid}*")
+
+    return {
+        "success": True,
+        "message": f"Batch '{bid}' deleted successfully.",
+        "batch_id": bid
+    }
+

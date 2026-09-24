@@ -10,6 +10,7 @@ from backend.database.mongo import get_mongo_db
 from backend.database.neo4j_driver import get_neo4j_driver
 from backend.models.actor import (
     ActorCreate,
+    ActorUpdate,
     ActorResponse,
     ActorListResponse
 )
@@ -133,3 +134,115 @@ async def create_actor(payload: ActorCreate):
         pass
 
     return ActorResponse(**doc)
+
+
+@router.put("/{actor_id:path}", response_model=ActorResponse)
+@router.patch("/{actor_id:path}", response_model=ActorResponse)
+async def update_actor(actor_id: str, payload: ActorUpdate):
+    """Update facility/actor metadata in MongoDB and sync to Neo4j."""
+    db = get_mongo_db()
+    aid = actor_id.strip()
+
+    doc = db.actors.find_one({"actor_id": aid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Actor with ID '{actor_id}' not found."
+        )
+
+    updates = {}
+    if payload.name is not None:
+        updates["name"] = payload.name.strip()
+    if payload.role is not None:
+        updates["inferred_role"] = payload.role.strip()
+        updates["role_origin"] = "APPLICATION"
+
+    if payload.address:
+        updates["address"] = payload.address.model_dump()
+
+    if payload.latitude is not None and payload.longitude is not None:
+        updates["geo_location"] = {
+            "type": "Point",
+            "coordinates": [float(payload.longitude), float(payload.latitude)]
+        }
+
+    if updates:
+        db.actors.update_one({"actor_id": aid}, {"$set": updates})
+        doc.update(updates)
+
+        # Sync to Neo4j
+        try:
+            driver = get_neo4j_driver()
+            with driver.session() as session:
+                session.run(
+                    """
+                    MATCH (l:Location {location_id: $lid})
+                    SET l.name = coalesce($name, l.name),
+                        l.city = coalesce($city, l.city),
+                        l.state = coalesce($state, l.state),
+                        l.inferred_role = coalesce($role, l.inferred_role)
+                    """,
+                    lid=aid,
+                    name=updates.get("name"),
+                    city=updates.get("address", {}).get("city"),
+                    state=updates.get("address", {}).get("state"),
+                    role=updates.get("inferred_role")
+                )
+        except Exception:
+            pass
+
+    return ActorResponse(**doc)
+
+
+@router.delete("/{actor_id:path}", status_code=status.HTTP_200_OK)
+async def delete_actor(actor_id: str):
+    """
+    Delete a facility/actor only if no historical trace events or batches reference it.
+    Strictly prevents orphaning historical traceability records.
+    """
+    db = get_mongo_db()
+    aid = actor_id.strip()
+
+    doc = db.actors.find_one({"actor_id": aid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Actor with ID '{actor_id}' not found."
+        )
+
+    # Reference integrity check
+    ev_count = db.trace_events.count_documents({
+        "$or": [
+            {"location_id": aid},
+            {"sources.location_id": aid},
+            {"destinations.location_id": aid}
+        ]
+    })
+    batch_count = db.batches.count_documents({"origin_location_id": aid})
+
+    if ev_count > 0 or batch_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete facility '{aid}': it is referenced by {ev_count} historical trace event(s) "
+                f"and {batch_count} batch origin(s). Deletion would orphan historical records."
+            )
+        )
+
+    # Safe delete from MongoDB
+    db.actors.delete_one({"actor_id": aid})
+
+    # Delete from Neo4j
+    try:
+        driver = get_neo4j_driver()
+        with driver.session() as session:
+            session.run("MATCH (l:Location {location_id: $lid}) DETACH DELETE l", lid=aid)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "message": f"Actor '{aid}' deleted successfully.",
+        "actor_id": aid
+    }
+

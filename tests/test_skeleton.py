@@ -64,3 +64,23 @@ def test_health_endpoint_healthy_when_mocked():
         assert data["services"]["mongodb"]["status"] == "healthy"
         assert data["services"]["neo4j"]["status"] == "healthy"
         assert data["services"]["redis"]["status"] == "healthy"
+
+
+def test_dashboard_and_static_serving():
+    """Verify that frontend dashboard and static assets are served properly."""
+    # Test /dashboard HTML
+    dash_resp = client.get("/dashboard")
+    assert dash_resp.status_code == 200
+    assert "text/html" in dash_resp.headers.get("content-type", "")
+    assert "Supply Chain Traceability System" in dash_resp.text
+
+    # Test static CSS
+    css_resp = client.get("/static/css/style.css")
+    assert css_resp.status_code == 200
+
+    # Test static JS
+    js_resp = client.get("/static/js/app.js")
+    assert js_resp.status_code == 200
+    assert "refreshOverviewMetrics" in js_resp.text
+
+

@@ -4,9 +4,11 @@ BCSE406L - NoSQL Databases
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.config import settings
 from backend.database.mongo import ping_mongo, close_mongo_client
@@ -58,7 +60,8 @@ async def root():
             "redis": "High-Speed Query Cache Layer"
         },
         "docs_url": "/docs",
-        "health_url": "/health"
+        "health_url": "/health",
+        "dashboard_url": "/dashboard"
     }
 
 
@@ -122,3 +125,17 @@ app.include_router(trace.router, prefix=api_v1_prefix)
 app.include_router(public.router, prefix=api_v1_prefix)
 app.include_router(cold_chain.router, prefix=api_v1_prefix)
 app.include_router(export.router, prefix=api_v1_prefix)
+
+
+# Static Files & Frontend Dashboard UI
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+if frontend_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+
+
+@app.get("/dashboard", response_class=FileResponse, tags=["Dashboard"], include_in_schema=False)
+async def dashboard():
+    """Interactive Web Dashboard for Supply Chain Traceability System."""
+    index_file = frontend_dir / "index.html"
+    return FileResponse(index_file)
+

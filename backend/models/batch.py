@@ -23,6 +23,11 @@ class BatchCreate(BaseModel):
     origin_location_id: Optional[str] = Field(None, description="Origin facility GLN URI")
 
 
+class BatchUpdate(BaseModel):
+    origin_location_id: Optional[str] = Field(None, description="Updated origin facility GLN URI")
+    uri: Optional[str] = Field(None, description="Updated GS1 Digital Link URI")
+
+
 class BatchResponse(BatchBase):
     id: str = Field(..., alias="_id")
 

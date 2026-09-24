@@ -10,6 +10,7 @@ from backend.database.mongo import get_mongo_db
 from backend.database.neo4j_driver import get_neo4j_driver
 from backend.models.product import (
     ProductCreate,
+    ProductUpdate,
     ProductResponse,
     ProductListResponse
 )
@@ -100,3 +101,93 @@ async def create_product(payload: ProductCreate):
         pass
 
     return ProductResponse(**doc)
+
+
+@router.put("/{product_id}", response_model=ProductResponse)
+@router.patch("/{product_id}", response_model=ProductResponse)
+async def update_product(product_id: str, payload: ProductUpdate):
+    """Update product metadata in MongoDB and sync to Neo4j."""
+    db = get_mongo_db()
+    pid = product_id.strip()
+
+    doc = db.products.find_one({"product_id": pid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with ID '{product_id}' not found."
+        )
+
+    updates = {}
+    if payload.name is not None:
+        updates["name"] = payload.name.strip()
+    if payload.description is not None:
+        updates["description"] = payload.description.strip()
+    if payload.uri is not None:
+        updates["uri"] = payload.uri.strip()
+
+    if updates:
+        db.products.update_one({"product_id": pid}, {"$set": updates})
+        doc.update(updates)
+
+        # Sync to Neo4j
+        if "name" in updates:
+            try:
+                driver = get_neo4j_driver()
+                with driver.session() as session:
+                    session.run(
+                        "MATCH (p:Product {product_id: $pid}) SET p.name = $name",
+                        pid=pid,
+                        name=updates["name"]
+                    )
+            except Exception:
+                pass
+
+    return ProductResponse(**doc)
+
+
+@router.delete("/{product_id}", status_code=status.HTTP_200_OK)
+async def delete_product(product_id: str):
+    """
+    Delete a product only if no batches or trace events reference it.
+    Strictly prevents orphaning historical traceability records.
+    """
+    db = get_mongo_db()
+    pid = product_id.strip()
+
+    doc = db.products.find_one({"product_id": pid})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with ID '{product_id}' not found."
+        )
+
+    # Reference integrity check
+    batch_count = db.batches.count_documents({"product_id": pid})
+    event_count = db.trace_events.count_documents({"product_ids": pid})
+
+    if batch_count > 0 or event_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete product '{pid}': it is referenced by {batch_count} existing batch(es) "
+                f"and {event_count} traceability record(s). Deletion would orphan historical records."
+            )
+        )
+
+    # Proceed with safe deletion
+    db.products.delete_one({"product_id": pid})
+
+    # Delete from Neo4j
+    try:
+        driver = get_neo4j_driver()
+        with driver.session() as session:
+            session.run("MATCH (p:Product {product_id: $pid}) DETACH DELETE p", pid=pid)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "message": f"Product '{pid}' deleted successfully.",
+        "product_id": pid
+    }
+

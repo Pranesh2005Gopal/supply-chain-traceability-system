@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supply Chain Traceability System | GS1 EPCIS 2.0</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vis.js Network for Graph Visualization -->
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-white shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white leading-tight">Supply Chain Traceability System</h1>
+          <p class="text-xs text-sky-400 font-medium">BCSE406L — NoSQL Databases (EPCIS 2.0 &amp; Multi-Model Store)</p>
+        </div>
+      </div>
+
+      <!-- Live Database Health Badges -->
+      <div class="flex items-center space-x-2 text-xs">
+        <div id="badge-api" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot"></span>
+          <span>API</span>
+        </div>
+        <div id="badge-mongo" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot"></span>
+          <span>MongoDB</span>
+        </div>
+        <div id="badge-neo4j" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot"></span>
+          <span>Neo4j</span>
+        </div>
+        <div id="badge-redis" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot"></span>
+          <span>Redis</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-800/80 backdrop-blur px-4 sm:px-6 lg:px-8 border-t border-slate-700">
+      <div class="max-w-7xl mx-auto flex space-x-1 overflow-x-auto py-1 text-sm font-medium">
+        <button onclick="switchTab('tab-overview')" id="btn-tab-overview" class="nav-tab active">Overview &amp; Metrics</button>
+        <button onclick="switchTab('tab-trace')" id="btn-tab-trace" class="nav-tab">Traceability Explorer</button>
+        <button onclick="switchTab('tab-products')" id="btn-tab-products" class="nav-tab">Products (CRUD)</button>
+        <button onclick="switchTab('tab-batches')" id="btn-tab-batches" class="nav-tab">Batches (CRUD)</button>
+        <button onclick="switchTab('tab-actors')" id="btn-tab-actors" class="nav-tab">Facilities &amp; Actors (CRUD)</button>
+        <button onclick="switchTab('tab-events')" id="btn-tab-events" class="nav-tab">Trace Events (Append-Only)</button>
+        <button onclick="switchTab('tab-public')" id="btn-tab-public" class="nav-tab">Public QR Verification</button>
+        <button onclick="switchTab('tab-coldchain')" id="btn-tab-coldchain" class="nav-tab">Cold Chain Telematics</button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+    <!-- NOTIFICATION BANNER -->
+    <div id="notification-banner" class="hidden mb-4 p-4 rounded-lg flex items-center justify-between text-sm shadow-sm transition-all duration-300">
+      <span id="notification-text"></span>
+      <button onclick="dismissNotification()" class="ml-4 font-bold text-lg leading-none">&times;</button>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- TAB 1: OVERVIEW & SYSTEM METRICS -->
+    <!-- ======================================================== -->
+    <section id="tab-overview" class="tab-content">
+      <div class="mb-6 flex justify-between items-center">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">System Overview &amp; Multi-Model Architecture</h2>
+          <p class="text-sm text-slate-500">Real-time status of document storage, provenance graph, and caching layer.</p>
+        </div>
+        <button onclick="refreshOverviewMetrics()" class="btn-secondary flex items-center space-x-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <!-- KPI Metric Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div class="card p-5 bg-gradient-to-br from-white to-sky-50/50 border-sky-100">
+          <span class="text-xs font-semibold uppercase tracking-wider text-sky-600">Total Trace Events</span>
+          <div class="text-3xl font-extrabold text-slate-900 mt-1" id="stat-events">5,650</div>
+          <span class="text-xs text-slate-500 mt-2 block">Append-only historical events</span>
+        </div>
+        <div class="card p-5 bg-gradient-to-br from-white to-blue-50/50 border-blue-100">
+          <span class="text-xs font-semibold uppercase tracking-wider text-blue-600">Registered Products</span>
+          <div class="text-3xl font-extrabold text-slate-900 mt-1" id="stat-products">413</div>
+          <span class="text-xs text-slate-500 mt-2 block">GS1 GTIN product classes</span>
+        </div>
+        <div class="card p-5 bg-gradient-to-br from-white to-indigo-50/50 border-indigo-100">
+          <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600">Batches &amp; Lots</span>
+          <div class="text-3xl font-extrabold text-slate-900 mt-1" id="stat-batches">377</div>
+          <span class="text-xs text-slate-500 mt-2 block">Compound GTIN:LOT instances</span>
+        </div>
+        <div class="card p-5 bg-gradient-to-br from-white to-emerald-50/50 border-emerald-100">
+          <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Facilities &amp; Actors</span>
+          <div class="text-3xl font-extrabold text-slate-900 mt-1" id="stat-actors">214</div>
+          <span class="text-xs text-slate-500 mt-2 block">GS1 GLN physical locations</span>
+        </div>
+        <div class="card p-5 bg-gradient-to-br from-white to-purple-50/50 border-purple-100">
+          <span class="text-xs font-semibold uppercase tracking-wider text-purple-600">Provenance Edges</span>
+          <div class="text-3xl font-extrabold text-slate-900 mt-1" id="stat-provenance">5,590</div>
+          <span class="text-xs text-slate-500 mt-2 block">100% resolved prevID links</span>
+        </div>
+      </div>
+
+      <!-- Architecture Mapping Matrix -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card p-6">
+          <div class="flex items-center space-x-3 mb-3">
+            <div class="w-8 h-8 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">M</div>
+            <h3 class="font-bold text-slate-800">MongoDB — Document Store</h3>
+          </div>
+          <p class="text-xs text-slate-600 mb-4">Primary operational database housing rich JSON documents, raw EPCIS payloads, and geospatial indexes.</p>
+          <ul class="text-xs space-y-2 text-slate-700">
+            <li class="flex justify-between border-b pb-1"><span>products</span><span class="font-semibold" id="m-count-products">413</span></li>
+            <li class="flex justify-between border-b pb-1"><span>batches</span><span class="font-semibold" id="m-count-batches">377</span></li>
+            <li class="flex justify-between border-b pb-1"><span>actors</span><span class="font-semibold" id="m-count-actors">214</span></li>
+            <li class="flex justify-between border-b pb-1"><span>trace_events</span><span class="font-semibold" id="m-count-events">5,650</span></li>
+          </ul>
+        </div>
+
+        <div class="card p-6">
+          <div class="flex items-center space-x-3 mb-3">
+            <div class="w-8 h-8 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">N</div>
+            <h3 class="font-bold text-slate-800">Neo4j — Provenance Graph</h3>
+          </div>
+          <p class="text-xs text-slate-600 mb-4">Dedicated graph database for multi-hop forward and backward path traversal and relationship discovery.</p>
+          <ul class="text-xs space-y-2 text-slate-700">
+            <li class="flex justify-between border-b pb-1"><span>:Event Nodes</span><span class="font-semibold" id="n-count-events">5,650</span></li>
+            <li class="flex justify-between border-b pb-1"><span>:PRECEDES Relationships</span><span class="font-semibold text-emerald-600" id="n-count-precedes">5,590</span></li>
+            <li class="flex justify-between border-b pb-1"><span>:OCCURRED_AT Relationships</span><span class="font-semibold" id="n-count-occurred">5,650</span></li>
+            <li class="flex justify-between border-b pb-1"><span>:OBSERVED Relationships</span><span class="font-semibold" id="n-count-observed">5,561</span></li>
+          </ul>
+        </div>
+
+        <div class="card p-6">
+          <div class="flex items-center space-x-3 mb-3">
+            <div class="w-8 h-8 rounded bg-rose-100 text-rose-700 flex items-center justify-center font-bold">R</div>
+            <h3 class="font-bold text-slate-800">Redis — Query &amp; QR Cache</h3>
+          </div>
+          <p class="text-xs text-slate-600 mb-4">In-memory caching layer accelerating public consumer QR verification lookups and hot batch graph traces.</p>
+          <ul class="text-xs space-y-2 text-slate-700">
+            <li class="flex justify-between border-b pb-1"><span>Public QR Cache TTL</span><span class="font-semibold">1,800 sec (30m)</span></li>
+            <li class="flex justify-between border-b pb-1"><span>Batch Trace Cache TTL</span><span class="font-semibold">600 sec (10m)</span></li>
+            <li class="flex justify-between border-b pb-1"><span>Cache Strategy</span><span class="font-semibold text-sky-600">Cache-Aside</span></li>
+            <li class="flex justify-between border-b pb-1"><span>Fallback Mode</span><span class="font-semibold text-emerald-600">Non-blocking / Auto</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 2: TRACEABILITY EXPLORER -->
+    <!-- ======================================================== -->
+    <section id="tab-trace" class="tab-content hidden">
+      <div class="card p-6 mb-6">
+        <h2 class="text-xl font-bold text-slate-900 mb-2">Interactive Multi-Hop Traceability Explorer</h2>
+        <p class="text-xs text-slate-500 mb-4">Query forward or backward product movement paths across the Neo4j graph and MongoDB document history.</p>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input type="text" id="trace-input-id" value="94011508952714:48300" placeholder="Enter Batch ID (GTIN:LOT) or Event SHA-256 Hash" class="form-input flex-1 font-mono text-sm">
+          <div class="flex space-x-2">
+            <button onclick="executeTrace('forward')" class="btn-primary flex items-center space-x-1.5">
+              <span>Forward Trace &rarr;</span>
+            </button>
+            <button onclick="executeTrace('backward')" class="btn-secondary flex items-center space-x-1.5">
+              <span>&larr; Backward Trace</span>
+            </button>
+            <button onclick="executeTrace('provenance')" class="btn-success flex items-center space-x-1.5">
+              <span>Provenance Certificate</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sample Quick Picks -->
+        <div class="mt-3 flex items-center space-x-2 text-xs text-slate-500">
+          <span>Sample Batches:</span>
+          <button onclick="setTraceTarget('94011508952714:48300')" class="chip">94011508952714:48300 (Root Harvest)</button>
+          <button onclick="setTraceTarget('04010772688050:23288')" class="chip">04010772688050:23288</button>
+          <button onclick="setTraceTarget('34010661926400:76371')" class="chip">34010661926400:76371</button>
+        </div>
+      </div>
+
+      <!-- Provenance Certificate Card (Displayed for Provenance Query) -->
+      <div id="provenance-card" class="hidden card p-6 mb-6 border-emerald-200 bg-emerald-50/20">
+        <div class="flex justify-between items-start border-b border-emerald-100 pb-4 mb-4">
+          <div>
+            <span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">Authentic Provenance Record</span>
+            <h3 class="text-xl font-bold text-slate-900 mt-1" id="prov-product-name">Product Name</h3>
+            <p class="text-xs text-slate-500 font-mono" id="prov-batch-id">Batch ID</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-slate-400">Total Custody Events</span>
+            <div class="text-2xl font-black text-emerald-700" id="prov-event-count">0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs mb-4">
+          <div class="bg-white p-3 rounded border">
+            <span class="text-slate-400 font-semibold block uppercase">Origin Harvest / Collection</span>
+            <div class="font-bold text-slate-800 text-sm mt-0.5" id="prov-origin-name">Facility Name</div>
+            <div class="text-slate-500" id="prov-origin-loc">Location</div>
+            <div class="text-slate-400 mt-1" id="prov-origin-time">Timestamp</div>
+          </div>
+          <div class="bg-white p-3 rounded border">
+            <span class="text-slate-400 font-semibold block uppercase">Current Status / Latest Receipt</span>
+            <div class="font-bold text-slate-800 text-sm mt-0.5" id="prov-latest-name">Facility Name</div>
+            <div class="text-slate-500" id="prov-latest-step">Step</div>
+            <div class="text-slate-400 mt-1" id="prov-latest-time">Timestamp</div>
+          </div>
+        </div>
+
+        <!-- Actors involved pills -->
+        <div>
+          <span class="text-xs font-semibold text-slate-600 block mb-2">Handling Facilities in Chain of Custody:</span>
+          <div id="prov-actors-list" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <!-- Graph & Timeline Viewers -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Interactive Graph Canvas -->
+        <div class="lg:col-span-7 card p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-slate-800 text-sm">Provenance Graph Visualization</h3>
+            <span id="graph-stats" class="text-xs text-slate-400">0 nodes, 0 edges</span>
+          </div>
+          <div id="network-container" class="h-[480px] w-full border border-slate-200 rounded-lg bg-slate-900/5"></div>
+        </div>
+
+        <!-- Chronological Event Timeline -->
+        <div class="lg:col-span-5 card p-4 flex flex-col h-[540px]">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-slate-800 text-sm">Chronological Timeline</h3>
+            <span id="timeline-count" class="text-xs text-slate-400">0 steps</span>
+          </div>
+          <div id="timeline-container" class="space-y-3 overflow-y-auto flex-1 pr-2">
+            <p class="text-xs text-slate-400 text-center py-10">Run a forward or backward trace to view event timeline.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 3: PRODUCTS (CRUD) -->
+    <!-- ======================================================== -->
+    <section id="tab-products" class="tab-content hidden">
+      <div class="card p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Product Catalog Management</h2>
+            <p class="text-xs text-slate-500">Register, inspect, update, and manage GTIN product master data.</p>
+          </div>
+          <button onclick="openProductModal()" class="btn-primary flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            <span>Add New Product</span>
+          </button>
+        </div>
+
+        <!-- Search input -->
+        <div class="mb-4">
+          <input type="text" id="product-search" placeholder="Search by GTIN or product name..." class="form-input text-sm w-full max-w-md" onkeyup="debounceProductSearch()">
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto border rounded-lg">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-100 text-slate-700 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">GTIN / Product ID</th>
+                <th class="p-3">Name / Description</th>
+                <th class="p-3">Data Origin</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="product-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="4" class="p-4 text-center text-slate-400">Loading products...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex justify-between items-center mt-4 text-xs text-slate-500">
+          <span id="product-page-info">Showing 0-0 of 0</span>
+          <div class="flex space-x-2">
+            <button onclick="prevProductPage()" class="btn-secondary py-1 px-3">Previous</button>
+            <button onclick="nextProductPage()" class="btn-secondary py-1 px-3">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 4: BATCHES (CRUD) -->
+    <!-- ======================================================== -->
+    <section id="tab-batches" class="tab-content hidden">
+      <div class="card p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Batch &amp; Lot Management</h2>
+            <p class="text-xs text-slate-500">Manage batch instances linked to parent products. Reference validation guards deletion.</p>
+          </div>
+          <button onclick="openBatchModal()" class="btn-primary flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            <span>Create New Batch</span>
+          </button>
+        </div>
+
+        <div class="mb-4 flex gap-3">
+          <input type="text" id="batch-search" placeholder="Search batch ID, lot, or GTIN..." class="form-input text-sm w-full max-w-md" onkeyup="debounceBatchSearch()">
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto border rounded-lg">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-100 text-slate-700 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">Compound Batch ID</th>
+                <th class="p-3">Lot Number</th>
+                <th class="p-3">Parent Product GTIN</th>
+                <th class="p-3">Data Origin</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="batch-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="p-4 text-center text-slate-400">Loading batches...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4 text-xs text-slate-500">
+          <span id="batch-page-info">Showing 0-0 of 0</span>
+          <div class="flex space-x-2">
+            <button onclick="prevBatchPage()" class="btn-secondary py-1 px-3">Previous</button>
+            <button onclick="nextBatchPage()" class="btn-secondary py-1 px-3">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 5: ACTORS / FACILITIES (CRUD) -->
+    <!-- ======================================================== -->
+    <section id="tab-actors" class="tab-content hidden">
+      <div class="card p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Facilities &amp; Actors Management</h2>
+            <p class="text-xs text-slate-500">Inspect supply chain actors, physical addresses, coordinates, and inferred operational roles.</p>
+          </div>
+          <button onclick="openActorModal()" class="btn-primary flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            <span>Register Facility</span>
+          </button>
+        </div>
+
+        <div class="mb-4 flex flex-wrap gap-3">
+          <input type="text" id="actor-search" placeholder="Search by name, GLN, or city..." class="form-input text-sm flex-1 max-w-sm" onkeyup="debounceActorSearch()">
+          <select id="actor-role-filter" class="form-input text-sm w-48" onchange="filterActorsByRole()">
+            <option value="">All Operational Roles</option>
+            <option value="HARVESTER_PRODUCER">HARVESTER_PRODUCER</option>
+            <option value="PROCESSOR_MANUFACTURER">PROCESSOR_MANUFACTURER</option>
+            <option value="DISTRIBUTOR_HUB">DISTRIBUTOR_HUB</option>
+            <option value="RETAILER_POINT_OF_SALE">RETAILER_POINT_OF_SALE</option>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto border rounded-lg">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-100 text-slate-700 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">Facility Name</th>
+                <th class="p-3">GLN Location Identifier</th>
+                <th class="p-3">Address &amp; State</th>
+                <th class="p-3">Inferred Role</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="actor-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="p-4 text-center text-slate-400">Loading facilities...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4 text-xs text-slate-500">
+          <span id="actor-page-info">Showing 0-0 of 0</span>
+          <div class="flex space-x-2">
+            <button onclick="prevActorPage()" class="btn-secondary py-1 px-3">Previous</button>
+            <button onclick="nextActorPage()" class="btn-secondary py-1 px-3">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 6: TRACE EVENTS (APPEND-ONLY) -->
+    <!-- ======================================================== -->
+    <section id="tab-events" class="tab-content hidden">
+      <div class="card p-6">
+        <!-- IMMUTABILITY NOTICE BANNER -->
+        <div class="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 flex items-start space-x-3">
+          <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+          <div>
+            <h4 class="font-bold text-sm">Immutable Append-Only Audit Trail (Section 11)</h4>
+            <p class="text-xs text-amber-800 mt-0.5">
+              Trace events represent an authoritative, tamper-evident historical ledger.
+              In accordance with system specifications, trace events can only be <strong>appended</strong> or <strong>retrieved</strong>.
+              Update and Delete operations are strictly disallowed.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Historical Trace Events</h2>
+            <p class="text-xs text-slate-500">Query and inspect all 5,650 authentic EPCIS supply chain transactions.</p>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="exportData('csv')" class="btn-secondary flex items-center space-x-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              <span>Export CSV</span>
+            </button>
+            <button onclick="exportData('json')" class="btn-secondary flex items-center space-x-1.5">
+              <span>Export JSON</span>
+            </button>
+            <button onclick="openAppendEventModal()" class="btn-primary flex items-center space-x-1.5">
+              <span>+ Append Event</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <input type="text" id="event-batch-filter" placeholder="Filter by Batch ID..." class="form-input text-sm" onkeyup="debounceEventSearch()">
+          <select id="event-bizstep-filter" class="form-input text-sm" onchange="filterEvents()">
+            <option value="">All Business Steps</option>
+            <option value="collecting">collecting (100)</option>
+            <option value="packing">packing (100)</option>
+            <option value="shipping">shipping (2,570)</option>
+            <option value="receiving">receiving (2,639)</option>
+            <option value="commissioning">commissioning (86)</option>
+            <option value="installing">installing (83)</option>
+            <option value="assembling">assembling (36)</option>
+            <option value="disassembling">disassembling (36)</option>
+          </select>
+          <select id="event-type-filter" class="form-input text-sm" onchange="filterEvents()">
+            <option value="">All Event Types</option>
+            <option value="ObjectEvent">ObjectEvent (5,409)</option>
+            <option value="TransformationEvent">TransformationEvent (86)</option>
+            <option value="AssociationEvent">AssociationEvent (83)</option>
+            <option value="AggregationEvent">AggregationEvent (72)</option>
+          </select>
+        </div>
+
+        <div class="overflow-x-auto border rounded-lg">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-100 text-slate-700 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">Canonical SHA-256 Hash</th>
+                <th class="p-3">Event Type</th>
+                <th class="p-3">Business Step</th>
+                <th class="p-3">Event Timestamp</th>
+                <th class="p-3">Involved Batches</th>
+                <th class="p-3 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody id="event-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="6" class="p-4 text-center text-slate-400">Loading events...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4 text-xs text-slate-500">
+          <span id="event-page-info">Showing 0-0 of 0</span>
+          <div class="flex space-x-2">
+            <button onclick="prevEventPage()" class="btn-secondary py-1 px-3">Previous</button>
+            <button onclick="nextEventPage()" class="btn-secondary py-1 px-3">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 7: PUBLIC QR VERIFICATION -->
+    <!-- ======================================================== -->
+    <section id="tab-public" class="tab-content hidden">
+      <div class="max-w-xl mx-auto">
+        <div class="card p-6 border-slate-200">
+          <div class="text-center mb-6">
+            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Consumer Public Lookup</span>
+            <h2 class="text-2xl font-bold text-slate-900 mt-2">Public Batch Authenticity Verification</h2>
+            <p class="text-xs text-slate-500 mt-1">High-speed verification endpoint encodable into consumer QR packaging labels.</p>
+          </div>
+
+          <div class="flex gap-2 mb-6">
+            <input type="text" id="public-qr-input" value="94011508952714:48300" placeholder="Enter Batch ID" class="form-input text-sm flex-1 font-mono">
+            <button onclick="verifyPublicQR()" class="btn-primary">Verify &rarr;</button>
+          </div>
+
+          <!-- Smartphone Verification Certificate Card -->
+          <div id="public-card" class="border-2 border-emerald-500 rounded-2xl p-6 bg-gradient-to-b from-emerald-50/50 to-white shadow-lg relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 opacity-10 text-emerald-800 pointer-events-none">
+              <svg class="w-48 h-48" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+            </div>
+
+            <div class="flex items-center space-x-2 text-emerald-700 font-bold text-sm mb-4">
+              <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+              <span>Verified Authenticity &amp; Traceability Certificate</span>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-700">
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Product Name:</span>
+                <span class="font-bold text-slate-900" id="qr-product-name">product#80da54bb</span>
+              </div>
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Batch / Lot Identifier:</span>
+                <span class="font-mono font-bold text-slate-900" id="qr-batch-id">94011508952714:48300</span>
+              </div>
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Verified Origin Farm:</span>
+                <span class="font-bold text-slate-900" id="qr-origin-farm">Yates-Price</span>
+              </div>
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Harvest Location:</span>
+                <span class="text-slate-900" id="qr-origin-location">Nathanmouth, Louisiana US</span>
+              </div>
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Harvest Timestamp:</span>
+                <span class="text-slate-900" id="qr-harvest-date">2024-01-01T11:30:46Z</span>
+              </div>
+              <div class="flex justify-between border-b pb-2">
+                <span class="text-slate-500 font-medium">Supply Chain Custody Count:</span>
+                <span class="font-bold text-slate-900" id="qr-custody-count">2 facilities</span>
+              </div>
+              <div class="flex justify-between items-center pt-1">
+                <span class="text-slate-500 font-medium">Data Integrity Origin:</span>
+                <span class="px-2 py-0.5 rounded font-bold bg-sky-100 text-sky-800 text-[10px]" id="qr-data-origin">SOURCE</span>
+              </div>
+            </div>
+
+            <div class="mt-5 p-3 rounded-lg bg-emerald-100/60 text-emerald-900 text-[11px] flex items-center justify-between">
+              <span>Status: <strong id="qr-status">receiving</strong></span>
+              <span class="text-emerald-700 font-mono text-[10px]">Redis Cache-Aside</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- TAB 8: COLD CHAIN TELEMATICS -->
+    <!-- ======================================================== -->
+    <section id="tab-coldchain" class="tab-content hidden">
+      <div class="card p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Cold Chain &amp; Sensor Telematics Audit</h2>
+            <p class="text-xs text-slate-500">Evaluates temperature and storage conditions adhering strictly to data truth rules.</p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <label class="flex items-center space-x-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <input type="checkbox" id="chk-simulate-coldchain" class="rounded text-sky-600" onchange="runColdChainAudit()">
+              <span>Demonstration Telematics Simulator</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-2 mb-6 max-w-md">
+          <input type="text" id="coldchain-batch-input" value="94011508952714:48300" placeholder="Enter Batch ID" class="form-input text-sm flex-1 font-mono">
+          <button onclick="runColdChainAudit()" class="btn-primary">Audit Status</button>
+        </div>
+
+        <!-- Status Card -->
+        <div id="coldchain-card" class="p-5 rounded-xl border mb-6 bg-slate-50">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-3">
+              <span id="coldchain-status-pill" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">NO_SENSOR_DATA</span>
+              <span id="coldchain-origin-pill" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-800">SOURCE</span>
+            </div>
+            <span id="coldchain-range" class="text-xs text-slate-500 font-mono"></span>
+          </div>
+          <p id="coldchain-message" class="text-xs text-slate-600 mb-4">No sensor readings found.</p>
+
+          <!-- Readings Table (Visible in Demo Simulator Mode) -->
+          <div id="coldchain-table-wrapper" class="hidden overflow-x-auto border rounded-lg bg-white">
+            <table class="w-full text-left text-xs text-slate-600">
+              <thead class="bg-slate-100 text-slate-700 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-2.5">Timestamp</th>
+                  <th class="p-2.5">Facility / Step</th>
+                  <th class="p-2.5">Temperature (&deg;C)</th>
+                  <th class="p-2.5">Humidity (%)</th>
+                  <th class="p-2.5">Compliance Status</th>
+                  <th class="p-2.5">Classification</th>
+                </tr>
+              </thead>
+              <tbody id="coldchain-readings-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODALS -->
+  <!-- ======================================================== -->
+
+  <!-- PRODUCT CREATE/EDIT MODAL -->
+  <div id="modal-product" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 class="text-lg font-bold text-slate-900 mb-4" id="modal-product-title">Add New Product</h3>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">GTIN / Product Identifier (14 Digits)</label>
+          <input type="text" id="m-prod-id" class="form-input text-xs w-full font-mono" placeholder="e.g. 12345678901234">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Product Display Name</label>
+          <input type="text" id="m-prod-name" class="form-input text-xs w-full" placeholder="e.g. Organic Pasteurized Milk">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Description</label>
+          <textarea id="m-prod-desc" class="form-input text-xs w-full" rows="3" placeholder="Product details..."></textarea>
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end space-x-2">
+        <button onclick="closeModal('modal-product')" class="btn-secondary">Cancel</button>
+        <button onclick="submitProductForm()" class="btn-primary" id="btn-save-product">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BATCH CREATE/EDIT MODAL -->
+  <div id="modal-batch" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 class="text-lg font-bold text-slate-900 mb-4" id="modal-batch-title">Create New Batch</h3>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Parent Product GTIN</label>
+          <input type="text" id="m-batch-gtin" class="form-input text-xs w-full font-mono" placeholder="e.g. 94011508952714">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Lot / Batch Number</label>
+          <input type="text" id="m-batch-lot" class="form-input text-xs w-full font-mono" placeholder="e.g. LOT-2026-A1">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Origin Facility (GLN URI, Optional)</label>
+          <input type="text" id="m-batch-origin" class="form-input text-xs w-full font-mono" placeholder="https://id.gs1.org/414/...">
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end space-x-2">
+        <button onclick="closeModal('modal-batch')" class="btn-secondary">Cancel</button>
+        <button onclick="submitBatchForm()" class="btn-primary" id="btn-save-batch">Create Batch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTOR CREATE/EDIT MODAL -->
+  <div id="modal-actor" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3 class="text-lg font-bold text-slate-900 mb-4" id="modal-actor-title">Register Facility / Actor</h3>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">GLN Identifier / URI</label>
+          <input type="text" id="m-actor-id" class="form-input text-xs w-full font-mono" placeholder="https://id.gs1.org/414/0012999999999/254/10001">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Facility Name</label>
+          <input type="text" id="m-actor-name" class="form-input text-xs w-full" placeholder="e.g. Blue Valley Creamery">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">City</label>
+            <input type="text" id="m-actor-city" class="form-input text-xs w-full" placeholder="City">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">State</label>
+            <input type="text" id="m-actor-state" class="form-input text-xs w-full" placeholder="State">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Latitude</label>
+            <input type="number" step="0.0001" id="m-actor-lat" class="form-input text-xs w-full" placeholder="e.g. 43.1009">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Longitude</label>
+            <input type="number" step="0.0001" id="m-actor-lon" class="form-input text-xs w-full" placeholder="e.g. -75.2326">
+          </div>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Operational Role</label>
+          <select id="m-actor-role" class="form-input text-xs w-full">
+            <option value="HARVESTER_PRODUCER">HARVESTER_PRODUCER</option>
+            <option value="PROCESSOR_MANUFACTURER">PROCESSOR_MANUFACTURER</option>
+            <option value="DISTRIBUTOR_HUB">DISTRIBUTOR_HUB</option>
+            <option value="RETAILER_POINT_OF_SALE">RETAILER_POINT_OF_SALE</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end space-x-2">
+        <button onclick="closeModal('modal-actor')" class="btn-secondary">Cancel</button>
+        <button onclick="submitActorForm()" class="btn-primary" id="btn-save-actor">Save Facility</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPEND TRACE EVENT MODAL (APPEND-ONLY) -->
+  <div id="modal-event" class="modal-backdrop hidden">
+    <div class="modal-card max-w-lg">
+      <h3 class="text-lg font-bold text-slate-900 mb-1">Append New Trace Event</h3>
+      <p class="text-[11px] text-amber-700 mb-4 bg-amber-50 p-2 rounded border border-amber-200">
+        &bull; Events are append-only. Once recorded, this transaction cannot be altered or removed.
+      </p>
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Event Type</label>
+            <select id="m-ev-type" class="form-input text-xs w-full">
+              <option value="ObjectEvent">ObjectEvent</option>
+              <option value="TransformationEvent">TransformationEvent</option>
+              <option value="AggregationEvent">AggregationEvent</option>
+              <option value="AssociationEvent">AssociationEvent</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Business Step</label>
+            <select id="m-ev-step" class="form-input text-xs w-full">
+              <option value="shipping">shipping</option>
+              <option value="receiving">receiving</option>
+              <option value="collecting">collecting</option>
+              <option value="packing">packing</option>
+              <option value="commissioning">commissioning</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Facility GLN Location ID</label>
+          <input type="text" id="m-ev-loc" class="form-input text-xs w-full font-mono" placeholder="https://id.gs1.org/414/0012230422385/254/57129">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Involved Batch ID (GTIN:LOT)</label>
+          <input type="text" id="m-ev-batch" class="form-input text-xs w-full font-mono" placeholder="94011508952714:48300">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">Predecessor Event SHA-256 Hash (fdaftr:prevID, Optional)</label>
+          <input type="text" id="m-ev-prev" class="form-input text-xs w-full font-mono" placeholder="64-char hex hash...">
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end space-x-2">
+        <button onclick="closeModal('modal-event')" class="btn-secondary">Cancel</button>
+        <button onclick="submitEventForm()" class="btn-primary">Append Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETION CONFIRMATION MODAL -->
+  <div id="modal-delete" class="modal-backdrop hidden">
+    <div class="modal-card max-w-sm">
+      <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+      </div>
+      <h3 class="text-base font-bold text-center text-slate-900 mb-1">Confirm Destructive Deletion</h3>
+      <p class="text-xs text-center text-slate-500 mb-4" id="delete-confirm-message">
+        Are you sure you want to delete this record?
+      </p>
+      <div class="p-2.5 rounded bg-slate-50 border text-[11px] text-slate-600 mb-4">
+        &bull; <strong>Reference Check:</strong> Deletions are automatically rejected if referenced by historical batches or traceability events.
+      </div>
+      <div class="flex space-x-2">
+        <button onclick="closeModal('modal-delete')" class="btn-secondary flex-1">Cancel</button>
+        <button id="btn-confirm-delete" class="btn-danger flex-1">Confirm Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RAW JSON EVENT PAYLOAD MODAL -->
+  <div id="modal-json" class="modal-backdrop hidden">
+    <div class="modal-card max-w-2xl">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-sm font-bold text-slate-900" id="json-modal-title">Raw EPCIS 2.0 Event Payload</h3>
+        <button onclick="closeModal('modal-json')" class="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+      </div>
+      <pre id="json-payload-viewer" class="bg-slate-900 text-emerald-400 p-4 rounded-lg text-xs font-mono overflow-auto max-h-96"></pre>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
