@@ -98,3 +98,27 @@ async def health_check():
 
     status_code = status.HTTP_200_OK if (all_healthy or overall_status == "degraded") else status.HTTP_503_SERVICE_UNAVAILABLE
     return JSONResponse(content=response_payload, status_code=status_code)
+
+
+# Mount API v1 Routers
+from backend.routers import (
+    products,
+    batches,
+    actors,
+    events,
+    trace,
+    public,
+    cold_chain,
+    export
+)
+
+api_v1_prefix = settings.API_V1_PREFIX
+
+app.include_router(products.router, prefix=api_v1_prefix)
+app.include_router(batches.router, prefix=api_v1_prefix)
+app.include_router(actors.router, prefix=api_v1_prefix)
+app.include_router(events.router, prefix=api_v1_prefix)
+app.include_router(trace.router, prefix=api_v1_prefix)
+app.include_router(public.router, prefix=api_v1_prefix)
+app.include_router(cold_chain.router, prefix=api_v1_prefix)
+app.include_router(export.router, prefix=api_v1_prefix)
